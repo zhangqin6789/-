@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>心形烟花特效</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: black;
+            font-family: Arial, sans-serif;
+        }
+        #fireworksCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="fireworksCanvas"></canvas>
+    <script>
+        const canvas = document.getElementById('fireworksCanvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        const fireworks = [];
+        const particles = [];
+        const colors = [
+            '255, 69, 0', // Red-Orange
+            '255, 140, 0', // Dark Orange
+            '255, 165, 0', // Orange
+            '255, 99, 71' // Tomato
+        ];
+
+        class Firework {
+            constructor(sx, sy, tx, ty, color1, color2) {
+                this.x = sx;
+                this.y = sy;
+                this.sx = sx;
+                this.sy = sy;
+                this.tx = tx;
+                this.ty = ty;
+                this.distanceToTarget = Math.sqrt(Math.pow(tx - sx, 2) + Math.pow(ty - sy, 2));
+                this.distanceTraveled = 0;
+                this.coordinates = [];
+                this.coordinateCount = 3;
+                while (this.coordinateCount--) {
+                    this.coordinates.push([this.x, this.y]);
+                }
+                this.angle = Math.atan2(ty - sy, tx - sx);
+                this.speed = 2;
+                this.acceleration = 1.05;
+                this.color1 = color1;
+                this.color2 = color2;
+            }
+
+            update(index) {
+                this.coordinates.pop();
+                this.coordinates.unshift([this.x, this.y]);
+
+                if (this.speed >= 12) {
+                    this.speed *= this.acceleration;
+                } else {
+                    this.speed = 12;
+                }
+
+                const vx = Math.cos(this.angle) * this.speed;
+                const vy = Math.sin(this.angle) * this.speed;
+                this.distanceTraveled = Math.sqrt(Math.pow(this.sx - this.x, 2) + Math.pow(this.sy - this.y, 2));
+
+                if (this.distanceTraveled >= this.distanceToTarget) {
+                    fireworks.splice(index, 1);
+                    createHeartParticles(this.tx, this.ty, this.color1, this.color2);
+                } else {
+                    this.x += vx;
+                    this.y += vy;
+                }
+            }
+
+            draw() {
+                ctx.beginPath();
+                ctx.moveTo(this.coordinates[this.coordinates.length - 1][0], this.coordinates[this.coordinates.length - 1][1]);
+                ctx.lineTo(this.x, this.y);
+                ctx.strokeStyle = 'rgba(255, 255, 255, .3)';
+                ctx.stroke();
+            }
+        }
+
+        class Particle {
+            constructor(x, y, color, speed, size) {
+                this.x = x;
+                this.y = y;
+                this.color = color;
+                this.speed = speed;
+                this.alpha = 1;
+                this.decay = Math.random() * 0.02 + 0.01; // Increased decay for faster fade out
+                this.size = size;
+            }
+
+            update(index) {
+                this.x += this.speed.x;
+                this.y += this.speed.y;
+                this.alpha -= this.decay;
+
+                if (this.alpha <= this.decay) {
+                    particles.splice(index, 1);
+                }
+            }
+
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2, false);
+                ctx.fillStyle = `rgba(${this.color}, ${this.alpha})`;
+                ctx.fill();
+            }
+        }
+
+        function createHeartParticles(x, y, color1, color2) {
+            const layers = 3; // Number of layers
+            const baseSize = Math.random() * 2 + 3; // Particle size variation, overall smaller size
+            for (let layer = 1; layer <= layers; layer++) {
+                let particleCount = 100; // Particle count for the heart shape
+                const layerScale = layer * 0.4; // Increased scale for faster spread
+                for (let i = 0; i < particleCount; i++) {
+                    const angle = Math.PI * 2 * (i / particleCount);
+                    const t = angle;
+                    const xPos = 16 * Math.pow(Math.sin(t), 3);
+                    const yPos = -(13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t));
+                    const color = i % 2 === 0 ? color1 : color2;
+                    const speed = { x: xPos * 0.15 * layerScale, y: yPos * 0.15 * layerScale }; // Increased speed for faster spread
+                    const size = baseSize * (Math.random() * 0.5 + 0.75); // Size variation
+                    const particle = new Particle(x, y, color, speed, size);
+                    particles.push(particle);
+                }
+            }
+        }
+
+        function loop() {
+            requestAnimationFrame(loop);
+            ctx.globalCompositeOperation = 'destination-out';
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.globalCompositeOperation = 'lighter';
+
+            fireworks.forEach((firework, index) => {
+                firework.update(index);
+                firework.draw();
+            });
+
+            particles.forEach((particle, index) => {
+                particle.update(index);
+                particle.draw();
+            });
+        }
+
+        function launchFireworks() {
+            for (let i = 0; i < 5; i++) {
+                const sx = canvas.width / 2;
+                const sy = canvas.height;
+                const tx = Math.random() * canvas.width;
+                const ty = Math.random() * canvas.height / 2;
+                const color1 = colors[Math.floor(Math.random() * colors.length)];
+                const color2 = colors[Math.floor(Math.random() * colors.length)];
+                fireworks.push(new Firework(sx, sy, tx, ty, color1, color2));
+            }
+        }
+
+        setInterval(launchFireworks, 2000); // Launch fireworks every 2 seconds
+
+        loop();
+    </script>
+</body>
+</html>
